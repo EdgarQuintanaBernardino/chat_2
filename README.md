@@ -223,3 +223,4 @@ El catálogo cargado cubre las siguientes categorías:
 - **Memoria persistente de sesión**: guardar historial en Redis para sobrevivir reinicios.
 - **Autenticación**: agregar JWT si el chatbot se expone públicamente.
 - **Google Calendar / Gmail**: integrar los servicios de Google para agendar citas consulares directamente desde el chat.
+# chat_2
