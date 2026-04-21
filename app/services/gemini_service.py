@@ -10,14 +10,14 @@ from app.services.faq_service import obtener_contexto_faqs, cargar_faqs
 from app.models.schemas import ChatMessage
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 SYSTEM_PROMPT = """Eres un asistente de consulta del catálogo de preguntas frecuentes de la SRE (Secretaría de Relaciones Exteriores de México).
 
 INSTRUCCIONES ESTRICTAS:
 - SOLO puedes responder usando la información del catálogo que se te proporciona a continuación.
 - Si la pregunta no está en el catálogo, responde exactamente: "No cuento con información sobre ese tema. Por favor contacta a la Embajada o Consulado de México más cercano."
-- NO agregues información propia, NO elabores, NO supongas nada fuera del catálogo.
+- NO agregues información propia ni supongas nada fuera del catálogo.
+- Reproduce la respuesta COMPLETA del catálogo, sin resumir, sin omitir ningún punto o requisito.
 - Responde en español, de forma clara y directa.
 - Sin etiquetas HTML, solo texto plano.
 
@@ -44,7 +44,7 @@ def _make_chat_session(client: genai.Client, history: list[types.Content]):
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
             temperature=0.0,
-            max_output_tokens=2048,
+            max_output_tokens=8192,
         ),
         history=history,
     )
