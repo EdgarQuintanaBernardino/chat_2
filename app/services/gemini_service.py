@@ -1,12 +1,16 @@
 import uuid
 import json
 import asyncio
+import logging
 import threading
 from google import genai
 from google.genai import types
 from app.core.config import settings
 from app.services.faq_service import obtener_contexto_faqs, cargar_faqs
 from app.models.schemas import ChatMessage
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 SYSTEM_PROMPT = """Eres un asistente de consulta del catálogo de preguntas frecuentes de la SRE (Secretaría de Relaciones Exteriores de México).
 
@@ -40,6 +44,7 @@ def _make_chat_session(client: genai.Client, history: list[types.Content]):
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
             temperature=0.0,
+            max_output_tokens=2048,
         ),
         history=history,
     )
@@ -59,6 +64,23 @@ async def chat(
 
     response = chat_session.send_message(message)
     reply = response.text.strip()
+
+    try:
+        candidate = response.candidates[0]
+        finish_reason = candidate.finish_reason
+        token_count = response.usage_metadata.candidates_token_count if response.usage_metadata else "N/A"
+        logger.info(
+            "[CHAT] mensaje=%r | finish_reason=%s | tokens_respuesta=%s | chars_respuesta=%d | respuesta=%r",
+            message[:80],
+            finish_reason,
+            token_count,
+            len(reply),
+            reply[:200],
+        )
+        if str(finish_reason) in ("FinishReason.MAX_TOKENS", "MAX_TOKENS", "2"):
+            logger.warning("[CHAT] RESPUESTA CORTADA POR LIMITE DE TOKENS")
+    except Exception as log_exc:
+        logger.warning("[CHAT] No se pudo leer metadata: %s", log_exc)
 
     faqs = cargar_faqs()
     fuentes: set[str] = set()
