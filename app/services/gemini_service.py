@@ -20,6 +20,7 @@ INSTRUCCIONES ESTRICTAS:
 - Reproduce la respuesta COMPLETA del catálogo, sin resumir, sin omitir ningún punto o requisito.
 - Responde en español, de forma clara y directa.
 - Sin etiquetas HTML, solo texto plano.
+- Sin incluir la pregunta
 
 {contexto_faqs}
 """
