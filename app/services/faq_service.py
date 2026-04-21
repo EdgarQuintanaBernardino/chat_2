@@ -21,7 +21,7 @@ def cargar_faqs(ruta_sql: str | None = None) -> list[PreguntaFrecuente]:
 
     if ruta_sql is None:
         base = Path(__file__).resolve().parents[2]
-        ruta_sql = str(base / "preguntas_frecuentes.sql")
+        ruta_sql = str(base / "preguntas_honduras.sql")
 
     with open(ruta_sql, encoding="latin-1") as f:
         contenido = f.read()
