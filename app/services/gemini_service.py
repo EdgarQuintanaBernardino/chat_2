@@ -6,24 +6,23 @@ import threading
 from google import genai
 from google.genai import types
 from app.core.config import settings
-from app.services.faq_service import obtener_contexto_faqs, cargar_faqs
+from app.services.faq_service import obtener_contexto_faqs, cargar_faqs, obtener_faq_por_id
 from app.models.schemas import ChatMessage
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """Eres un asistente de consulta del catálogo de preguntas frecuentes de la SRE (Secretaría de Relaciones Exteriores de México).
+MATCH_PROMPT = """Eres un clasificador de preguntas frecuentes.
 
-INSTRUCCIONES ESTRICTAS:
-- SOLO puedes responder usando la información del catálogo que se te proporciona a continuación.
-- Si la pregunta no está en el catálogo, responde exactamente: "No cuento con información sobre ese tema. Por favor contacta a la Embajada o Consulado de México más cercano."
-- NO agregues información propia ni supongas nada fuera del catálogo.
-- Reproduce la respuesta COMPLETA del catálogo, sin resumir, sin omitir ningún punto o requisito.
-- Responde en español, de forma clara y directa.
-- Sin etiquetas HTML, solo texto plano.
-- Sin incluir la pregunta
+Se te dará una pregunta del usuario y una lista de FAQs numeradas por id_pregunta.
+Responde ÚNICAMENTE con el id_pregunta (número entero) de la FAQ que mejor responda la pregunta del usuario.
+Si ninguna FAQ es relevante, responde exactamente: 0
+
+No expliques nada, solo el número.
 
 {contexto_faqs}
 """
+
+NO_MATCH = "No cuento con información sobre ese tema. Por favor contacta a la Embajada o Consulado de México más cercano."
 
 
 def _get_client() -> genai.Client:
@@ -60,40 +59,36 @@ async def chat(
         session_id = str(uuid.uuid4())
 
     client = _get_client()
-    gemini_history = _build_history(history)
-    chat_session = _make_chat_session(client, gemini_history)
+    system_instruction = MATCH_PROMPT.format(contexto_faqs=obtener_contexto_faqs())
 
-    response = chat_session.send_message(message)
-    reply = response.text.strip()
+    response = client.models.generate_content(
+        model=settings.GEMINI_MODEL,
+        contents=message,
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=0.0,
+            max_output_tokens=16,
+        ),
+    )
+
+    raw = response.text.strip()
+    logger.info("[CHAT] mensaje=%r | id_match=%r", message[:80], raw)
 
     try:
-        candidate = response.candidates[0]
-        finish_reason = candidate.finish_reason
-        token_count = response.usage_metadata.candidates_token_count if response.usage_metadata else "N/A"
-        logger.info(
-            "[CHAT] mensaje=%r | finish_reason=%s | tokens_respuesta=%s | chars_respuesta=%d | respuesta=%r",
-            message[:80],
-            finish_reason,
-            token_count,
-            len(reply),
-            reply[:200],
-        )
-        if str(finish_reason) in ("FinishReason.MAX_TOKENS", "MAX_TOKENS", "2"):
-            logger.warning("[CHAT] RESPUESTA CORTADA POR LIMITE DE TOKENS")
-    except Exception as log_exc:
-        logger.warning("[CHAT] No se pudo leer metadata: %s", log_exc)
+        id_match = int(raw)
+    except ValueError:
+        id_match = 0
 
-    faqs = cargar_faqs()
-    fuentes: set[str] = set()
-    for faq in faqs:
-        if any(
-            palabra.lower() in message.lower()
-            for palabra in faq.pregunta.split()
-            if len(palabra) > 4
-        ):
-            fuentes.add(f"{faq.tema} / {faq.subtema}")
+    if id_match == 0:
+        return NO_MATCH, session_id, []
 
-    return reply, session_id, sorted(fuentes)[:3]
+    faq = obtener_faq_por_id(id_match)
+    if faq is None:
+        logger.warning("[CHAT] id_match=%d no encontrado en FAQs", id_match)
+        return NO_MATCH, session_id, []
+
+    logger.info("[CHAT] FAQ encontrada id=%d | respuesta chars=%d", faq.id_pregunta, len(faq.respuesta))
+    return faq.respuesta, session_id, [f"{faq.tema} / {faq.subtema}"]
 
 
 async def chat_stream(

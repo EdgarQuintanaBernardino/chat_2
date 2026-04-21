@@ -96,13 +96,19 @@ def _split_sql_row(row: str) -> list[str]:
 
 
 def obtener_contexto_faqs() -> str:
-    """Construye un bloque de texto con todas las FAQs para el system prompt."""
     faqs = cargar_faqs()
-    lineas = ["=== PREGUNTAS FRECUENTES DE LA SRE ===\n"]
+    lineas = ["=== PREGUNTAS FRECUENTES ===\n"]
     for faq in faqs:
         lineas.append(
-            f"[{faq.tema} / {faq.subtema}]\n"
+            f"id_pregunta: {faq.id_pregunta}\n"
             f"P: {faq.pregunta}\n"
-            f"R: {faq.respuesta}\n"
         )
     return "\n".join(lineas)
+
+
+def obtener_faq_por_id(id_pregunta: int):
+    faqs = cargar_faqs()
+    for faq in faqs:
+        if faq.id_pregunta == id_pregunta:
+            return faq
+    return None
