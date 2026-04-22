@@ -1,14 +1,13 @@
 import logging
 import sys
 from contextlib import asynccontextmanager
-from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.routers import chat, faqs
 from app.services.faq_service import cargar_faqs
+from app.services.gemini_service import init_system_prompt
 from app.models.schemas import HealthResponse
 
 logging.basicConfig(
@@ -20,16 +19,16 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Precarga las FAQs al iniciar el servidor
     faqs_cargadas = cargar_faqs()
     print(f"[startup] {len(faqs_cargadas)} preguntas frecuentes cargadas.")
+    init_system_prompt()
+    print("[startup] System prompt con FAQs listo.")
     yield
 
 
 app = FastAPI(
     title=settings.APP_TITLE,
     version=settings.APP_VERSION,
-    description="Backend del chatbot de la SRE impulsado por Gemini 1.5 Flash",
     lifespan=lifespan,
 )
 
